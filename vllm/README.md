@@ -17,4 +17,7 @@ The first experiments focus on:
 Start the vLLM server:
 
 ```bash
-MODEL=Qwen/Qwen2.5-7B-Instruct bash vllm/scripts/01_serve_baseline.sh
+MODEL=Qwen/Qwen2.5-3B-Instruct \
+GPU_UTIL=0.50 \
+MAX_MODEL_LEN=8192 \
+bash vllm/scripts/01_serve_baseline.sh
