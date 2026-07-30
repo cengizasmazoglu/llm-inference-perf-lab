@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MODEL="${MODEL:-Qwen/Qwen2.5-7B-Instruct}"
+MODEL="${MODEL:-Qwen/Qwen2.5-3B-Instruct}"
 PORT="${PORT:-8000}"
 NUM_PROMPTS="${NUM_PROMPTS:-128}"
 REQUEST_RATE="${REQUEST_RATE:-4}"
