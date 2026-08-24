@@ -14,27 +14,12 @@ MAX_CONCURRENCY="${MAX_CONCURRENCY:-}"
 INPUT_LEN="${INPUT_LEN:-512}"
 OUTPUT_LEN="${OUTPUT_LEN:-128}"
 
-TEMPERATURE="${TEMPERATURE:-0}"
+SEED="${SEED:-0}"
 
-RUN_ID="${RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
-RUN_DIR="${RUN_DIR:-vllm/results/raw/${RUN_ID}}"
+RUN_ID="${RUN_ID:-001_vllm_baseline_$(date -u +%Y%m%dT%H%M%SZ)}"
+RUN_DIR="${RUN_DIR:-vllm/results/raw/$RUN_ID}"
 
 mkdir -p "$RUN_DIR"
-
-echo "RUN_ID=$RUN_ID"
-echo "RUN_DIR=$RUN_DIR"
-echo
-echo "Running vLLM serving benchmark"
-echo "MODEL=$MODEL"
-echo "PORT=$PORT"
-echo "NUM_PROMPTS=$NUM_PROMPTS"
-echo "NUM_WARMUPS=$NUM_WARMUPS"
-echo "REQUEST_RATE=$REQUEST_RATE"
-echo "BURSTINESS=$BURSTINESS"
-echo "MAX_CONCURRENCY=${MAX_CONCURRENCY:-unlimited}"
-echo "INPUT_LEN=$INPUT_LEN"
-echo "OUTPUT_LEN=$OUTPUT_LEN"
-echo "TEMPERATURE=$TEMPERATURE"
 
 CMD=(
   vllm bench serve
@@ -43,29 +28,23 @@ CMD=(
   --host 127.0.0.1
   --port "$PORT"
   --endpoint /v1/chat/completions
-
   --dataset-name random
+  --num-prompts "$NUM_PROMPTS"
+  --num-warmups "$NUM_WARMUPS"
+  --request-rate "$REQUEST_RATE"
+  --burstiness "$BURSTINESS"
   --random-input-len "$INPUT_LEN"
   --random-output-len "$OUTPUT_LEN"
   --random-range-ratio 0.0
-
-  --num-prompts "$NUM_PROMPTS"
-  --num-warmups "$NUM_WARMUPS"
-
-  --request-rate "$REQUEST_RATE"
-  --burstiness "$BURSTINESS"
-
-  --temperature "$TEMPERATURE"
+  --seed "$SEED"
   --ignore-eos
-
+  --temperature 0
   --percentile-metrics ttft,tpot,itl,e2el
   --metric-percentiles 50,95,99
-
   --save-result
   --save-detailed
   --result-dir "$RUN_DIR"
   --result-filename benchmark.json
-
   --metadata "run_id=$RUN_ID"
 )
 
@@ -74,28 +53,30 @@ if [[ -n "$MAX_CONCURRENCY" ]]; then
 fi
 
 cat > "$RUN_DIR/benchmark-config.txt" <<EOF
-MODEL=$MODEL
-PORT=$PORT
-NUM_PROMPTS=$NUM_PROMPTS
-NUM_WARMUPS=$NUM_WARMUPS
-REQUEST_RATE=$REQUEST_RATE
-BURSTINESS=$BURSTINESS
-MAX_CONCURRENCY=${MAX_CONCURRENCY:-unlimited}
-INPUT_LEN=$INPUT_LEN
-OUTPUT_LEN=$OUTPUT_LEN
-RANDOM_RANGE_RATIO=0.0
-TEMPERATURE=$TEMPERATURE
-IGNORE_EOS=true
+model=$MODEL
+num_prompts=$NUM_PROMPTS
+num_warmups=$NUM_WARMUPS
+request_rate=$REQUEST_RATE
+burstiness=$BURSTINESS
+max_concurrency=$MAX_CONCURRENCY
+input_len=$INPUT_LEN
+output_len=$OUTPUT_LEN
+seed=$SEED
+temperature=0
+ignore_eos=true
 EOF
 
-{
-  printf '%q ' "${CMD[@]}"
-  printf '\n'
-} > "$RUN_DIR/benchmark-command.txt"
+printf '%q ' "${CMD[@]}" > "$RUN_DIR/benchmark-command.txt"
+printf '\n' >> "$RUN_DIR/benchmark-command.txt"
 
-echo
-echo "Exact benchmark command:"
-cat "$RUN_DIR/benchmark-command.txt"
+echo "========================================"
+echo "Serving benchmark"
+echo "========================================"
+echo "RUN_ID=$RUN_ID"
+echo "REQUEST_RATE=$REQUEST_RATE"
+echo "MAX_CONCURRENCY=${MAX_CONCURRENCY:-unlimited}"
+echo "NUM_PROMPTS=$NUM_PROMPTS"
+echo "SEED=$SEED"
 echo
 
 "${CMD[@]}" 2>&1 | tee "$RUN_DIR/benchmark.log"
