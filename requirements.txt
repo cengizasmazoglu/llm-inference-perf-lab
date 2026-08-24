@@ -1,4 +1,4 @@
-vllm
+vllm==0.27.1
 pandas
 matplotlib
 rich
