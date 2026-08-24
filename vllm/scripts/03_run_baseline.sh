@@ -28,13 +28,38 @@ echo "RUN_DIR=$RUN_DIR"
 echo "MODEL=$MODEL"
 echo
 
-echo "Step 1/3: Collecting environment..."
+echo "Resolving exact Hugging Face model revision..."
+
+MODEL_REVISION="$(
+  python vllm/scripts/06_resolve_model_revision.py "$MODEL"
+)"
+
+export MODEL_REVISION
+
+echo "MODEL_REVISION=$MODEL_REVISION"
+
+printf '%s\n' "$MODEL_REVISION" \
+  > "$RUN_DIR/model-revision.txt"
+
+echo
+echo "Step 1/5: Collecting environment..."
+
 bash vllm/scripts/00_check_env.sh
+
 
 cleanup() {
   local exit_code=$?
 
   trap - EXIT INT TERM
+
+  if [[ -n "${TELEMETRY_PID:-}" ]]; then
+    if kill -0 "$TELEMETRY_PID" 2>/dev/null; then
+      echo
+      echo "Stopping GPU telemetry..."
+      kill "$TELEMETRY_PID" 2>/dev/null || true
+      wait "$TELEMETRY_PID" 2>/dev/null || true
+    fi
+  fi
 
   if [[ -n "${SERVER_PID:-}" ]]; then
     if kill -0 "$SERVER_PID" 2>/dev/null; then
@@ -49,8 +74,9 @@ cleanup() {
 
 trap cleanup EXIT INT TERM
 
+
 echo
-echo "Step 2/3: Starting vLLM server..."
+echo "Step 2/5: Starting vLLM server..."
 
 setsid bash vllm/scripts/01_serve_baseline.sh &
 SERVER_PID=$!
@@ -67,13 +93,14 @@ while (( SECONDS < DEADLINE )); do
   if ! kill -0 "$SERVER_PID" 2>/dev/null; then
     echo
     echo "ERROR: vLLM server exited before becoming healthy."
-    echo
-    echo "Last server log lines:"
     tail -50 "$RUN_DIR/server.log" 2>/dev/null || true
     exit 1
   fi
 
-  if curl -fsS "http://127.0.0.1:${PORT}/health" >/dev/null 2>&1; then
+  if curl -fsS \
+    "http://127.0.0.1:${PORT}/health" \
+    >/dev/null 2>&1; then
+
     READY=1
     break
   fi
@@ -81,21 +108,47 @@ while (( SECONDS < DEADLINE )); do
   sleep 2
 done
 
+
 if [[ "$READY" -ne 1 ]]; then
   echo
-  echo "ERROR: vLLM server did not become healthy within ${HEALTH_TIMEOUT}s."
-  echo
-  echo "Last server log lines:"
+  echo "ERROR: vLLM server did not become healthy."
   tail -50 "$RUN_DIR/server.log" 2>/dev/null || true
   exit 1
 fi
 
 echo "vLLM is healthy."
 
+
 echo
-echo "Step 3/3: Running benchmark..."
+echo "Step 3/5: Starting GPU telemetry..."
+
+bash vllm/scripts/04_collect_gpu_metrics.sh &
+TELEMETRY_PID=$!
+
+echo "$TELEMETRY_PID" > "$RUN_DIR/gpu-telemetry.pid"
+
+sleep 2
+
+
+echo
+echo "Step 4/5: Running benchmark..."
 
 bash vllm/scripts/02_bench_random_baseline.sh
+
+
+echo
+echo "Stopping GPU telemetry..."
+
+kill "$TELEMETRY_PID" 2>/dev/null || true
+wait "$TELEMETRY_PID" 2>/dev/null || true
+TELEMETRY_PID=""
+
+
+echo
+echo "Step 5/5: Creating experiment manifest..."
+
+python vllm/scripts/05_make_manifest.py "$RUN_DIR"
+
 
 echo
 echo "========================================"

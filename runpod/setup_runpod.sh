@@ -7,6 +7,13 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 VENV_DIR="${VENV_DIR:-$REPO_ROOT/.venv-runpod}"
 PYTHON_VERSION="${PYTHON_VERSION:-3.12}"
 
+VLLM_VERSION="0.27.1"
+CUDA_WHEEL="cu129"
+
+VLLM_WHEEL_URL="https://github.com/vllm-project/vllm/releases/download/v${VLLM_VERSION}/vllm-${VLLM_VERSION}+${CUDA_WHEEL}-cp38-abi3-manylinux_2_28_x86_64.whl"
+
+PYTORCH_INDEX_URL="https://download.pytorch.org/whl/${CUDA_WHEEL}"
+
 cd "$REPO_ROOT"
 
 echo "========================================"
@@ -15,6 +22,7 @@ echo "========================================"
 echo "Repository: $REPO_ROOT"
 echo "Virtual environment: $VENV_DIR"
 echo "Python target: $PYTHON_VERSION"
+echo "vLLM: $VLLM_VERSION+$CUDA_WHEEL"
 echo
 
 echo "=== GPU ==="
@@ -27,6 +35,7 @@ echo
 
 echo "=== INSTALLING UV ==="
 python -m pip install --upgrade uv
+
 echo
 uv --version
 echo
@@ -52,11 +61,16 @@ python --version
 which python
 echo
 
-echo "=== INSTALLING LAB DEPENDENCIES ==="
+echo "=== INSTALLING CUDA-MATCHED vLLM ==="
 
 uv pip install \
-  --torch-backend=auto \
-  -r requirements.txt
+  "$VLLM_WHEEL_URL" \
+  --extra-index-url "$PYTORCH_INDEX_URL"
+
+echo
+echo "=== INSTALLING LAB DEPENDENCIES ==="
+
+uv pip install -r requirements.txt
 
 echo
 echo "=== INSTALLED VERSIONS ==="
@@ -75,6 +89,7 @@ if torch.cuda.is_available():
 
     for i in range(torch.cuda.device_count()):
         props = torch.cuda.get_device_properties(i)
+
         print(f"GPU {i}: {props.name}")
         print(
             f"GPU {i} VRAM: "
@@ -90,7 +105,7 @@ echo
 echo "========================================"
 echo "Setup complete."
 echo
-echo "Before running experiments:"
+echo "Activate with:"
 echo
 echo "  source .venv-runpod/bin/activate"
 echo
