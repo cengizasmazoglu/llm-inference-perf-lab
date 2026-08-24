@@ -7,7 +7,9 @@ PORT="${PORT:-8000}"
 INPUT_LEN="${INPUT_LEN:-512}"
 OUTPUT_LEN="${OUTPUT_LEN:-128}"
 
-NUM_PROMPTS="${NUM_PROMPTS:-128}"
+MIN_PROMPTS="${MIN_PROMPTS:-128}"
+WAVES_PER_POINT="${WAVES_PER_POINT:-8}"
+
 SEED="${SEED:-0}"
 
 GPU_UTIL="${GPU_UTIL:-0.50}"
@@ -49,6 +51,8 @@ echo "SWEEP_ID=$SWEEP_ID"
 echo "SWEEP_DIR=$SWEEP_DIR"
 echo "MODEL=$MODEL"
 echo "CONCURRENCIES=$CONCURRENCIES"
+echo "MIN_PROMPTS=$MIN_PROMPTS"
+echo "WAVES_PER_POINT=$WAVES_PER_POINT"
 echo
 
 echo "Resolving exact Hugging Face revision..."
@@ -70,7 +74,8 @@ model=$MODEL
 model_revision=$MODEL_REVISION
 input_len=$INPUT_LEN
 output_len=$OUTPUT_LEN
-num_prompts_per_point=$NUM_PROMPTS
+min_prompts=$MIN_PROMPTS
+waves_per_point=$WAVES_PER_POINT
 request_rate=inf
 seed=$SEED
 gpu_memory_utilization=$GPU_UTIL
@@ -154,6 +159,12 @@ for C in $CONCURRENCIES; do
   POINT_ID="${SWEEP_ID}_c${PADDED_C}"
   POINT_DIR="$SWEEP_DIR/concurrency_${PADDED_C}"
 
+  POINT_PROMPTS=$((C * WAVES_PER_POINT))
+
+  if (( POINT_PROMPTS < MIN_PROMPTS )); then
+    POINT_PROMPTS="$MIN_PROMPTS"
+  fi
+
   mkdir -p "$POINT_DIR"
 
   cp "$SWEEP_DIR/server-config.txt" \
@@ -169,6 +180,8 @@ for C in $CONCURRENCIES; do
 sweep_id=$SWEEP_ID
 point_id=$POINT_ID
 max_concurrency=$C
+num_prompts=$POINT_PROMPTS
+target_concurrency_waves=$WAVES_PER_POINT
 request_rate=inf
 seed=$SEED
 prefix_caching=off
@@ -177,6 +190,7 @@ EOF
   echo
   echo "----------------------------------------"
   echo "Concurrency $C"
+  echo "Prompts: $POINT_PROMPTS"
   echo "----------------------------------------"
 
   RUN_DIR="$POINT_DIR" \
@@ -193,7 +207,7 @@ EOF
   RUN_DIR="$POINT_DIR" \
   MODEL="$MODEL" \
   PORT="$PORT" \
-  NUM_PROMPTS="$NUM_PROMPTS" \
+  NUM_PROMPTS="$POINT_PROMPTS" \
   NUM_WARMUPS=0 \
   REQUEST_RATE=inf \
   MAX_CONCURRENCY="$C" \
