@@ -1,3 +1,5 @@
+numpy
 pandas
 matplotlib
 rich
+huggingface_hub

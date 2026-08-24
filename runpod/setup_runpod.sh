@@ -35,7 +35,6 @@ echo
 
 echo "=== INSTALLING UV ==="
 python -m pip install --upgrade uv
-
 echo
 uv --version
 echo
@@ -65,12 +64,15 @@ echo "=== INSTALLING CUDA-MATCHED vLLM ==="
 
 uv pip install \
   "$VLLM_WHEEL_URL" \
-  --extra-index-url "$PYTORCH_INDEX_URL"
+  --extra-index-url "$PYTORCH_INDEX_URL" \
+  --index-strategy unsafe-best-match
 
 echo
 echo "=== INSTALLING LAB DEPENDENCIES ==="
 
-uv pip install -r requirements.txt
+uv pip install \
+  -r requirements.txt \
+  --index-strategy unsafe-best-match
 
 echo
 echo "=== INSTALLED VERSIONS ==="
@@ -78,10 +80,12 @@ echo "=== INSTALLED VERSIONS ==="
 python - <<'PY'
 import torch
 import vllm
+import huggingface_hub
 
 print("vLLM:", vllm.__version__)
 print("PyTorch:", torch.__version__)
 print("PyTorch CUDA:", torch.version.cuda)
+print("Hugging Face Hub:", huggingface_hub.__version__)
 print("CUDA available:", torch.cuda.is_available())
 
 if torch.cuda.is_available():
