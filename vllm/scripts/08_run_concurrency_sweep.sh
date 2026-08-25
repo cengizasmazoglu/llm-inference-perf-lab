@@ -20,6 +20,8 @@ CONCURRENCIES="${CONCURRENCIES:-1 2 4 8 16 32 64}"
 SWEEP_ID="${SWEEP_ID:-002_concurrency_saturation_$(date -u +%Y%m%dT%H%M%SZ)}"
 SWEEP_DIR="${SWEEP_DIR:-vllm/results/raw/$SWEEP_ID}"
 
+SERVER_READY_TIMEOUT_S="${SERVER_READY_TIMEOUT_S:-420}"
+
 SERVER_PID=""
 TELEMETRY_PID=""
 
@@ -82,6 +84,7 @@ gpu_memory_utilization=$GPU_UTIL
 max_model_len=$MAX_MODEL_LEN
 prefix_caching=off
 concurrencies=$CONCURRENCIES
+server_ready_timeout_s=$SERVER_READY_TIMEOUT_S
 EOF
 
 echo "Step 1: Recording environment..."
@@ -112,7 +115,7 @@ echo "Waiting for server..."
 
 READY=0
 
-for _ in $(seq 1 180); do
+for _ in $(seq 1 "$SERVER_READY_TIMEOUT_S"); do
   if curl -fsS \
     "http://127.0.0.1:${PORT}/health" \
     >/dev/null 2>&1; then
