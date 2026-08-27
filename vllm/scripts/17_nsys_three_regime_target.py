@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 
+import ctypes
+import glob
 import os
 import signal
 import subprocess
+import sys
 import time
 import urllib.request
 from pathlib import Path
 
-import torch
 
 
 MODEL = os.environ.get(
@@ -67,6 +69,55 @@ RUN_DIR = Path(
 RUN_DIR.mkdir(
     parents=True,
     exist_ok=True,
+)
+
+
+def load_nvtx():
+    candidates = [
+        "libnvToolsExt.so.1",
+        "libnvToolsExt.so",
+    ]
+
+    candidates += glob.glob(
+        f"{sys.prefix}/lib/python*/site-packages/"
+        "nvidia/nvtx/lib/libnvToolsExt.so*"
+    )
+
+    for candidate in candidates:
+        try:
+            return ctypes.CDLL(candidate)
+        except OSError:
+            pass
+
+    raise RuntimeError(
+        "Could not load libnvToolsExt"
+    )
+
+
+_nvtx = load_nvtx()
+
+_nvtx.nvtxRangePushA.argtypes = [
+    ctypes.c_char_p
+]
+_nvtx.nvtxRangePushA.restype = ctypes.c_int
+
+_nvtx.nvtxRangePop.argtypes = []
+_nvtx.nvtxRangePop.restype = ctypes.c_int
+
+
+def nvtx_push(name):
+    _nvtx.nvtxRangePushA(
+        name.encode("utf-8")
+    )
+
+
+def nvtx_pop():
+    _nvtx.nvtxRangePop()
+
+
+os.environ.setdefault(
+    "VLLM_WORKER_MULTIPROC_METHOD",
+    "spawn",
 )
 
 
@@ -161,7 +212,7 @@ def run_benchmark(
     # Nsight timeline as the EngineCore GPU work.
     # We will use its timestamps later to slice
     # the GPU trace.
-    torch.cuda.nvtx.range_push(
+    nvtx_push(
         nvtx_name
     )
 
@@ -176,7 +227,7 @@ def run_benchmark(
             check=True,
         )
     finally:
-        torch.cuda.nvtx.range_pop()
+        nvtx_pop()
 
     print(
         f"Completed {nvtx_name}"
