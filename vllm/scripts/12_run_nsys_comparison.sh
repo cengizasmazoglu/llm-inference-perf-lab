@@ -132,7 +132,7 @@ setsid nsys profile \
   --trace-fork-before-exec=true \
   --cuda-graph-trace=node \
   --capture-range=cudaProfilerApi \
-  --capture-range-end=repeat:3:defer \
+  --capture-range-end=repeat:3:sync \
   --kill=sigterm \
   --output="$NSYS_DIR/vllm_profile" \
   bash vllm/scripts/01_serve_baseline.sh \
@@ -278,6 +278,82 @@ EOF
     -X POST \
     "http://127.0.0.1:${PORT}/stop_profile" \
     > "$POINT_DIR/stop-profile-response.txt"
+
+
+
+
+
+echo "Validating Nsight capture..."
+
+EXPECTED_CAPTURE_COUNT="$CAPTURE_INDEX"
+
+CAPTURE_READY=0
+
+for _ in $(seq 1 60); do
+  ACTUAL_CAPTURE_COUNT="$(
+    find "$NSYS_DIR" \
+      -maxdepth 1 \
+      -type f \
+      -name '*.nsys-rep' \
+      | wc -l
+  )"
+
+  if [[ "$ACTUAL_CAPTURE_COUNT" -ge "$EXPECTED_CAPTURE_COUNT" ]]; then
+    CAPTURE_READY=1
+    break
+  fi
+
+  sleep 1
+done
+
+if [[ "$CAPTURE_READY" -ne 1 ]]; then
+  echo "ERROR: Nsight report was not generated."
+  exit 1
+fi
+
+CURRENT_REPORT="$(
+  find "$NSYS_DIR" \
+    -maxdepth 1 \
+    -type f \
+    -name '*.nsys-rep' \
+    | sort -V \
+    | sed -n "${CAPTURE_INDEX}p"
+)"
+
+CURRENT_STATS="$POINT_DIR/nsys-kernel-validation.txt"
+
+nsys stats \
+  --report cuda_gpu_kern_sum \
+  "$CURRENT_REPORT" \
+  > "$CURRENT_STATS" 2>&1
+
+cat "$CURRENT_STATS"
+
+if grep -qi \
+  'does not contain CUDA kernel data' \
+  "$CURRENT_STATS"; then
+
+  echo
+  echo "ERROR: Nsight report contains no CUDA kernel data."
+  echo "Stopping experiment immediately."
+  exit 1
+fi
+
+if ! grep -q \
+  'CUDA GPU Kernel Summary' \
+  "$CURRENT_STATS"; then
+
+  echo
+  echo "ERROR: CUDA GPU Kernel Summary not found."
+  exit 1
+fi
+
+echo
+echo "Nsight CUDA capture validated."
+
+
+
+
 
   set +e
   wait "$BENCH_PID"
