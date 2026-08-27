@@ -102,7 +102,6 @@ export VLLM_WORKER_MULTIPROC_METHOD=spawn
 nsys launch \
     --session-new="$SESSION" \
     --trace=cuda,nvtx,osrt \
-    --sample=none \
     --trace-fork-before-exec=true \
     --cuda-graph-trace=node \
     --show-output=true \
@@ -259,6 +258,7 @@ EOF
 
     nsys start \
         --session="$SESSION" \
+        --sample=none \
         --output="$REPORT_BASE"
 
     sleep "$PROFILE_DURATION_S"
