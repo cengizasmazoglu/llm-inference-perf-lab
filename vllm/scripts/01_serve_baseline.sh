@@ -7,10 +7,11 @@ GPU_UTIL="${GPU_UTIL:-0.50}"
 MAX_MODEL_LEN="${MAX_MODEL_LEN:-8192}"
 MODEL_REVISION="${MODEL_REVISION:-}"
 
-# default = leave vLLM's own default untouched
-# on      = explicitly enable prefix caching
-# off     = explicitly disable prefix caching
 PREFIX_CACHING="${PREFIX_CACHING:-default}"
+
+# none = normal serving
+# cuda = expose vLLM CUDA profiling controls for Nsight Systems
+PROFILER="${PROFILER:-none}"
 
 RUN_ID="${RUN_ID:-001_vllm_baseline_$(date -u +%Y%m%dT%H%M%SZ)}"
 RUN_DIR="${RUN_DIR:-vllm/results/raw/$RUN_ID}"
@@ -22,6 +23,15 @@ case "$PREFIX_CACHING" in
     ;;
   *)
     echo "PREFIX_CACHING must be: default, on, or off"
+    exit 1
+    ;;
+esac
+
+case "$PROFILER" in
+  none|cuda)
+    ;;
+  *)
+    echo "PROFILER must be: none or cuda"
     exit 1
     ;;
 esac
@@ -48,6 +58,10 @@ case "$PREFIX_CACHING" in
     ;;
 esac
 
+if [[ "$PROFILER" == "cuda" ]]; then
+  CMD+=(--profiler-config.profiler cuda)
+fi
+
 cat > "$RUN_DIR/server-config.txt" <<EOF
 model=$MODEL
 model_revision=$MODEL_REVISION
@@ -56,6 +70,7 @@ gpu_memory_utilization=$GPU_UTIL
 max_model_len=$MAX_MODEL_LEN
 generation_config=vllm
 prefix_caching=$PREFIX_CACHING
+profiler=$PROFILER
 EOF
 
 printf '%q ' "${CMD[@]}" > "$RUN_DIR/server-command.txt"
@@ -70,6 +85,7 @@ echo "PORT=$PORT"
 echo "GPU_UTIL=$GPU_UTIL"
 echo "MAX_MODEL_LEN=$MAX_MODEL_LEN"
 echo "PREFIX_CACHING=$PREFIX_CACHING"
+echo "PROFILER=$PROFILER"
 echo "RUN_DIR=$RUN_DIR"
 echo
 
