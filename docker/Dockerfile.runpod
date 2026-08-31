@@ -1,0 +1,26 @@
+FROM vllm/vllm-openai:v0.27.1-x86_64-cu129@sha256:6666717cd1cadf9adfff8abec9c3f2eca6e27e742de06fe7d7f129fa3d647732
+
+USER root
+
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+       git \
+       curl \
+       ca-certificates \
+       python-is-python3 \
+       python-is-python3 \
+       python-is-python3 \
+       sqlite3 \
+       procps \
+       psmisc \
+       cuda-nsight-systems-12-9=12.9.2-1 \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV HF_HOME=/workspace/hf-cache
+ENV VLLM_CACHE_ROOT=/workspace/vllm-cache
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /workspace
+
+ENTRYPOINT []
+CMD ["sleep", "infinity"]
