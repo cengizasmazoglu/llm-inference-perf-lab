@@ -1,10 +1,31 @@
 #!/usr/bin/env python3
 
 import argparse
+import csv
 import json
+import math
 from pathlib import Path
 
-import pandas as pd
+
+def mean(values):
+    return sum(values) / len(values)
+
+
+def quantile_linear(values, q):
+    values = sorted(values)
+
+    if len(values) == 1:
+        return values[0]
+
+    pos = (len(values) - 1) * q
+    lo = math.floor(pos)
+    hi = math.ceil(pos)
+
+    if lo == hi:
+        return values[lo]
+
+    fraction = pos - lo
+    return values[lo] + (values[hi] - values[lo]) * fraction
 
 
 def main():
@@ -26,14 +47,19 @@ def main():
         benchmark_path.read_text()
     )
 
-    telemetry = pd.read_csv(
-        telemetry_path
-    )
+    with telemetry_path.open(newline="") as f:
+        reader = csv.DictReader(f)
 
-    if "perf_counter_s" not in telemetry:
-        raise RuntimeError(
-            "Telemetry does not contain perf_counter_s."
-        )
+        if (
+            not reader.fieldnames
+            or "perf_counter_s" not in reader.fieldnames
+        ):
+            raise RuntimeError(
+                "Telemetry does not contain perf_counter_s."
+            )
+
+        fieldnames = reader.fieldnames
+        telemetry = list(reader)
 
     starts = [
         float(x)
@@ -45,14 +71,6 @@ def main():
             "benchmark.json contains no start_times."
         )
 
-    #
-    # vLLM request start_times use time.perf_counter().
-    # Our telemetry collector now uses the same clock.
-    #
-    # The main benchmark begins immediately before requests
-    # are scheduled, so min(start_times) provides the
-    # request-active start on the shared monotonic clock.
-    #
     benchmark_start = min(starts)
 
     benchmark_duration = float(
@@ -64,18 +82,18 @@ def main():
         + benchmark_duration
     )
 
-    active = telemetry[
-        (
-            telemetry["perf_counter_s"]
+    active = [
+        row
+        for row in telemetry
+        if (
+            float(row["perf_counter_s"])
             >= benchmark_start
-        )
-        & (
-            telemetry["perf_counter_s"]
+            and float(row["perf_counter_s"])
             <= benchmark_end
         )
-    ].copy()
+    ]
 
-    if active.empty:
+    if not active:
         raise RuntimeError(
             "No telemetry samples fall inside "
             "the benchmark window."
@@ -86,9 +104,38 @@ def main():
         / "gpu-metrics-benchmark.csv"
     )
 
-    active.to_csv(
-        output_csv,
-        index=False,
+    with output_csv.open("w", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=fieldnames,
+        )
+
+        writer.writeheader()
+        writer.writerows(active)
+
+    def column(name):
+        return [
+            float(row[name])
+            for row in active
+        ]
+
+    gpu_util = column(
+        "utilization_gpu_pct"
+    )
+    memory_activity = column(
+        "utilization_memory_pct"
+    )
+    vram = column(
+        "memory_used_mib"
+    )
+    power = column(
+        "power_draw_w"
+    )
+    temperature = column(
+        "temperature_c"
+    )
+    sm_clock = column(
+        "sm_clock_mhz"
     )
 
     summary = {
@@ -105,80 +152,43 @@ def main():
             benchmark_duration,
 
         "telemetry_samples_total":
-            int(len(telemetry)),
+            len(telemetry),
 
         "telemetry_samples_benchmark":
-            int(len(active)),
+            len(active),
 
         "gpu_util_mean_pct":
-            float(
-                active[
-                    "utilization_gpu_pct"
-                ].mean()
-            ),
+            mean(gpu_util),
 
         "gpu_util_p95_pct":
-            float(
-                active[
-                    "utilization_gpu_pct"
-                ].quantile(0.95)
+            quantile_linear(
+                gpu_util,
+                0.95,
             ),
 
         "gpu_util_max_pct":
-            float(
-                active[
-                    "utilization_gpu_pct"
-                ].max()
-            ),
+            max(gpu_util),
 
         "memory_activity_mean_pct":
-            float(
-                active[
-                    "utilization_memory_pct"
-                ].mean()
-            ),
+            mean(memory_activity),
 
         "vram_mean_mib":
-            float(
-                active[
-                    "memory_used_mib"
-                ].mean()
-            ),
+            mean(vram),
 
         "vram_max_mib":
-            float(
-                active[
-                    "memory_used_mib"
-                ].max()
-            ),
+            max(vram),
 
         "power_mean_w":
-            float(
-                active[
-                    "power_draw_w"
-                ].mean()
-            ),
+            mean(power),
 
         "power_max_w":
-            float(
-                active[
-                    "power_draw_w"
-                ].max()
-            ),
+            max(power),
 
         "temperature_max_c":
-            float(
-                active[
-                    "temperature_c"
-                ].max()
-            ),
+            max(temperature),
 
         "sm_clock_mean_mhz":
-            float(
-                active[
-                    "sm_clock_mhz"
-                ].mean()
-            ),
+            mean(sm_clock),
     }
 
     summary_path = (
