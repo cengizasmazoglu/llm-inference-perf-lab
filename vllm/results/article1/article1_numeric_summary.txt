@@ -1,0 +1,26 @@
+Canonical means (tok/s):
+C64  = 4255.64
+C128 = 4996.44
+C256 = 4773.80
+
+Canonical CV:
+C64  = 0.398%
+C128 = 0.174%
+C256 = 0.148%
+
+Canonical paired C128 advantage over C256:
+4.664%
+
+Clean-room means (tok/s):
+C64  = 4114.36
+C128 = 4814.48
+C256 = 4559.83
+
+Clean-room paired C128 advantage over C256:
+5.586%
+
+007B:
+GPU busy C128→C256 = 97.89% → 98.05%
+steady mixed batch C128→C256 = 108.83 → 218.00
+steady mixed kernel C128→C256 = 353.85 → 708.88 µs
+mixed/prefill FA2 C128→C256 = 23.10 → 46.27 µs/output-token
