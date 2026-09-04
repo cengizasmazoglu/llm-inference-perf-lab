@@ -61,11 +61,18 @@ echo "WAVES_PER_POINT=$WAVES_PER_POINT"
 echo "SEED=$SEED"
 echo
 
-echo "Resolving exact Hugging Face revision..."
+if [[ -n "${MODEL_REVISION:-}" ]]; then
+  echo "Using explicitly pinned model revision:"
+  echo "MODEL_REVISION=$MODEL_REVISION"
+else
+  echo "Resolving exact Hugging Face revision..."
 
-MODEL_REVISION="$(
-  python vllm/scripts/06_resolve_model_revision.py "$MODEL"
-)"
+  MODEL_REVISION="$(
+    python vllm/scripts/06_resolve_model_revision.py "$MODEL"
+  )"
+
+  echo "MODEL_REVISION=$MODEL_REVISION"
+fi
 
 export MODEL_REVISION
 
