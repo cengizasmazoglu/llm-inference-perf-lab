@@ -16,7 +16,7 @@ Nsight Systems analysis localizes the additional post-knee GPU cost to a sustain
 
 **Publication figures and evidence:** [`vllm/results/article1/`](vllm/results/article1/)
 
-**Article:** forthcoming on ProduckAI
+**Article:** [Beyond Peak Throughput: Finding and Explaining vLLM’s Concurrency Knee on an A100](https://produckai.com/blog/vllm-concurrency-knee-a100/)
 
 This repository focuses on production-relevant inference metrics:
 
