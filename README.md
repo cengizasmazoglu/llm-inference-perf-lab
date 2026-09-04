@@ -2,6 +2,22 @@
 
 Reproducible experiments for measuring and tuning LLM inference serving systems.
 
+## Article #1 — vLLM Concurrency Knee on A100
+
+**Beyond Peak Throughput: Finding and Explaining vLLM’s Concurrency Knee on an A100**
+
+A controlled saturation study of vLLM 0.27.1 with Qwen2.5-3B-Instruct on an NVIDIA A100-SXM4-80GB.
+
+Across three balanced repeats, output throughput peaked at concurrency 128 and declined at 256, while TTFT and TPOT deteriorated sharply. A fresh-host clean-room reproduction preserved the same regime ordering.
+
+Nsight Systems analysis localizes the additional post-knee GPU cost to a sustained mixed/prefill-containing FlashAttention path, while inspection of the vLLM V1 scheduler provides the systems-level connection to continuous batching under a fixed token budget.
+
+**Frozen evidence release:** [article1-v1.0](https://github.com/cengizasmazoglu/llm-inference-perf-lab/releases/tag/article1-v1.0)
+
+**Publication figures and evidence:** [`vllm/results/article1/`](vllm/results/article1/)
+
+**Article:** forthcoming on ProduckAI
+
 This repository focuses on production-relevant inference metrics:
 
 - TTFT: time to first token
@@ -30,16 +46,15 @@ This lab measures those tradeoffs explicitly.
 
 ## Current status
 
-- [ ] vLLM baseline benchmark
-- [ ] vLLM batching parameter sweep
-- [ ] vLLM chunked prefill experiment
-- [ ] vLLM prefix caching experiment
-- [ ] vLLM metrics dashboard
-- [ ] SGLang comparison
-- [ ] TensorRT-LLM comparison
+- [x] Controlled vLLM saturation benchmark on A100
+- [x] Three-repeat concurrency-knee validation
+- [x] Fresh-host clean-room reproduction
+- [x] Nsight Systems mechanism analysis
+- [x] Frozen Article #1 evidence release
+- [ ] vLLM vs SGLang comparison
+- [ ] TensorRT-LLM investigation
 
 ## Author
 
-Cengiz Asmazoğlu  
-LLM Inference Performance Consultant  
-PhD researcher in LLM inference serving optimization
+Cengiz Asmazoglu  
+PhD Researcher · LLM Inference Performance Engineer
